@@ -1,0 +1,89 @@
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #FAF9F6;
+    color: #0F172A;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+::-webkit-scrollbar {
+  display: none;
+}
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+}
+.pulse-glow-emerald {
+  animation: subtle-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes red-threat-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+  }
+}
+.pulse-glow-rose {
+  animation: red-threat-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes highlight-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(124, 58, 237, 0);
+  }
+}
+.highlight-flash {
+  animation: highlight-flash 0.9s ease-out 2;
+}
+
+/* ------------------------------------------------------------------ */
+/* Visual hierarchy pass: app.js fully overwrites the className on the
+   event/tool row wrappers, dots, and status pills on every render, so
+   their weight can only be tuned here via structural selectors scoped
+   to the two list containers — never by editing app.js or relying on
+   a class name it might set. */
+/* ------------------------------------------------------------------ */
+
+/* Routine rows read flatter than the hero card and section chrome:
+   drop the ring/shadow the JS template classes add, and shorten the
+   hover lift so these recede instead of competing for attention. */
+#events-list > div,
+#tools-list > div {
+  box-shadow: none !important;
+}
+#events-list > div:hover {
+  transform: translateX(2px) !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Event row entrance: the one deliberate motion moment on the page.
+   #events-list is fully rebuilt by app.js on every poll tick, so this
+   plays whenever a row is (re)inserted rather than only on genuinely
+   new alerts — kept short and subtle for that reason, so it reads as
+   a quiet "live" pulse rather than a distracting repeat performance. */
+/* ------------------------------------------------------------------ */
+@keyframes event-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+#events-list > div {
+  animation: event-row-in 0.32s ease-out both;
+}
