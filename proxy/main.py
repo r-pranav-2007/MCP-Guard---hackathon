@@ -100,9 +100,30 @@ def _make_alert(alert_type, tool_id, severity, message, status, diff_report=None
 # Startup
 # ---------------------------------------------------------------------------
 
+def _reconcile_stale_pending_state():
+    """PENDING_MANIFESTS lives only in process memory and starts empty on
+    every restart, but a tool's "blocked"/"pending" status — and any
+    alert referencing it — is persisted in guard.db across restarts.
+    Without this, a restart can leave an unactionable "ghost" alert on
+    screen (hero card + Manifest Inspection panel, Approve/Reject
+    buttons visible) whose pending manifest no longer exists in memory,
+    so clicking Approve/Reject 404s with "No pending change" forever.
+    On startup, revert any such tool to its last-known approved
+    baseline and mark its lingering alerts approved to match, so the
+    dashboard never shows an alert it can't actually act on."""
+    for record in store.list_fingerprints():
+        tool_id = record["tool_id"]
+        if record["status"] in ("blocked", "pending") and tool_id not in PENDING_MANIFESTS:
+            store.save_fingerprint({**record, "status": "approved"})
+            for alert in store.list_alerts():
+                if alert["tool_id"] == tool_id and alert["status"] in ("blocked", "pending"):
+                    store.update_alert_status(alert["id"], "approved")
+
+
 @app.on_event("startup")
 def _startup():
     store.init_db()
+    _reconcile_stale_pending_state()
 
 
 # ---------------------------------------------------------------------------
@@ -166,8 +187,29 @@ def api_tools():
 
 def _approve_tool(tool_id: str) -> dict:
     pending = PENDING_MANIFESTS.get(tool_id)
+
     if pending is None:
-        raise HTTPException(status_code=404, detail=f"No pending change for '{tool_id}'")
+        # No in-memory draft in THIS process. That doesn't mean there's
+        # nothing to approve — a different process (e.g. mcp_gateway.py,
+        # which does its own startup verification by calling
+        # _run_registration() directly) may have detected and blocked
+        # this tool, or this process may have restarted since the block
+        # was first recorded. Either way the pending manifest only ever
+        # lived in some process's memory that's no longer around, but
+        # the real tool server is still the ground truth for "what is
+        # this tool currently proposing" — re-fetch it and approve that,
+        # rather than failing just because our own cache doesn't have it.
+        existing = store.get_fingerprint(tool_id)
+        server_url = ((existing or {}).get("approved_manifest") or {}).get("server_url")
+        if not server_url:
+            raise HTTPException(status_code=404, detail=f"No pending change for '{tool_id}'")
+        try:
+            pending = requests.get(f"{server_url}/manifest", timeout=10).json()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"No pending change cached for '{tool_id}', and could not re-fetch its manifest from {server_url}: {exc}",
+            )
 
     new_fp = fingerprint.compute(pending)
     store.save_fingerprint({
@@ -177,7 +219,7 @@ def _approve_tool(tool_id: str) -> dict:
         "approved_at": _now_iso(),
         "status": "approved",
     })
-    del PENDING_MANIFESTS[tool_id]
+    PENDING_MANIFESTS.pop(tool_id, None)
 
     for alert in store.list_alerts():
         if alert["tool_id"] == tool_id and alert["status"] in ("pending", "blocked"):

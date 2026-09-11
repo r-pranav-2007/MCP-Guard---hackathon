@@ -87,3 +87,75 @@
 #events-list > div {
   animation: event-row-in 0.32s ease-out both;
 }
+
+/* ------------------------------------------------------------------ */
+/* Richer event rows: a leading icon tile + trailing quick-action icons
+   were added to the row template as EXTRA children (positions 2 and 3)
+   after the two app.js already indexes (contentCol=0, statusPill=1),
+   so app.js's positional lookups stay valid. `order` moves the icon
+   tile to the front visually without changing its DOM/children index.
+   Row-level flex properties come from app.js's JS-set className
+   (flex items-start justify-between gap-6), which can't be edited
+   here, so justify-content/align-items are overridden with !important. */
+/* ------------------------------------------------------------------ */
+#events-list > div {
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+
+.event-icon-tile {
+  order: -1;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.event-icon-tile .material-symbols-outlined {
+  color: inherit;
+}
+
+/* Icon tile color follows the status pill's own color (set by
+   badgeForAlert() in app.js) so it stays a real signal, not decoration
+   — exact type (mutation/hijack/poisoned-output) isn't exposed to CSS,
+   only severity is, via the pill's existing bg-*-50 utility class. */
+#events-list > div:has(.bg-rose-50) .event-icon-tile {
+  background: #fee2e2;
+  color: #e11d48;
+}
+#events-list > div:has(.bg-amber-50) .event-icon-tile {
+  background: #fef3c7;
+  color: #d97706;
+}
+#events-list > div:has(.bg-emerald-50) .event-icon-tile {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.event-action-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.event-action-btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569;
+}
+/* Copy-fingerprint action only makes sense when this row actually has
+   a hash badge (app.js removes that badge entirely when an alert has
+   no diff_report / fingerprint). */
+#events-list > div:not(:has(.event-hash-badge)) .copy-hash-action {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark sidebar */
+/* ------------------------------------------------------------------ */
+.sidebar-dark {
+  background-color: #14121F;
+}
